@@ -3,6 +3,12 @@ import { hashPassword } from "../lib/password.js";
 
 export async function onRequestPost({ request, env }) {
   // The endpoint stays locked unless a setup secret is configured.
+  if (new URL(request.url).protocol !== "https:") {
+  return Response.json(
+    { success: false, message: "HTTPS is required." },
+    { status: 400 }
+  );
+}
   const setupToken = env.INITIAL_SETUP_TOKEN;
   const authorization = request.headers.get("Authorization");
 
