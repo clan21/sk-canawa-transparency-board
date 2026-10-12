@@ -7,7 +7,8 @@
     {
       "binding": "DB",
       "database_name": "sk-canawa-transparency-db",
-      "database_id": "389c744a-3b97-45b2-a386-4969a3f4f0af"
+      "database_id": "389c744a-3b97-45b2-a386-4969a3f4f0af",
+      "preview_database_id": "DB"
     }
   ]
 }

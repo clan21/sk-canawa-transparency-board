@@ -51,10 +51,13 @@ export async function hashPassword(password) {
   ].join("$");
 }
 
+
 export async function verifyPassword(password, storedHash) {
   try {
-    if (typeof password !== "string" ||
-        typeof storedHash !== "string") {
+    if (
+      typeof password !== "string" ||
+      typeof storedHash !== "string"
+    ) {
       return false;
     }
 
@@ -66,16 +69,21 @@ export async function verifyPassword(password, storedHash) {
 
     const iterations = Number(parts[1]);
 
-    if (!Number.isInteger(iterations) ||
-        iterations < 100000 ||
-        iterations > 1000000) {
+    if (
+      !Number.isInteger(iterations) ||
+      iterations < 100000 ||
+      iterations > 1000000
+    ) {
       return false;
     }
 
     const salt = fromBase64(parts[2]);
     const expectedHash = fromBase64(parts[3]);
 
-    if (salt.length !== 16 || expectedHash.length !== HASH_LENGTH) {
+    if (
+      salt.length !== 16 ||
+      expectedHash.length !== HASH_LENGTH
+    ) {
       return false;
     }
 
@@ -85,9 +93,14 @@ export async function verifyPassword(password, storedHash) {
       iterations
     );
 
-    return crypto.subtle.timingSafeEqual
-      ? crypto.subtle.timingSafeEqual(actualHash, expectedHash)
-      : actualHash.every((byte, index) => byte === expectedHash[index]);
+    // Compare every byte, even if an earlier byte differs.
+    let difference = 0;
+
+    for (let i = 0; i < HASH_LENGTH; i++) {
+      difference |= actualHash[i] ^ expectedHash[i];
+    }
+
+    return difference === 0;
   } catch {
     return false;
   }
