@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sk-canawa-transparency-board",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-10-12",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sk-canawa-transparency-db",
+      "database_id": "389c744a-3b97-45b2-a386-4969a3f4f0af"
+    }
+  ]
+}
