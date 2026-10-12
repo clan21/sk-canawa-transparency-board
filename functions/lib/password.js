@@ -1,5 +1,5 @@
 
-const ITERATIONS = 310000;
+const ITERATIONS = 100000;
 const HASH_LENGTH = 32;
 
 function toBase64(bytes) {
