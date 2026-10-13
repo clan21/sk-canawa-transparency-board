@@ -1,44 +1,24 @@
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './style.css';
+import './documents.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import { renderPagination } from './pagination.js';
 
-// Temporary sample data for the document library.
-// These are examples, not actual SK Canawa documents.
-const documents = [
-  {
-    id: 1,
-    title: 'Annual Barangay Budget 2026',
-    category: 'budget',
-    date: '2026-01-15',
-    description: 'Sample entry for the annual budget document.',
-    filename: null
-  },
-  {
-    id: 2,
-    title: 'SK Financial Report - First Quarter',
-    category: 'expenses',
-    date: '2026-04-10',
-    description: 'Sample entry for a quarterly financial report.',
-    filename: null
-  },
-  {
-    id: 3,
-    title: 'Community Clean-Up Project',
-    category: 'projects',
-    date: '2026-05-20',
-    description: 'Sample entry for a project report.',
-    filename: null
-  },
-  {
-    id: 4,
-    title: 'SK Accomplishment Report 2025',
-    category: 'accomplishments',
-    date: '2026-01-05',
-    description: 'Sample entry for an accomplishment report.',
-    filename: null
-  }
-];
+// Documents are loaded from the server (GET /api/documents).
+let documents = [];
+let loadState = 'loading'; // 'loading' | 'ready' | 'error'
+
+// Documents per page. Fewer on small screens so phones scroll less:
+// 4 on phones, 6 on tablets (2 columns), 8 on large screens (4 columns).
+function getPageSize() {
+  if (window.innerWidth >= 1200) return 8;
+  if (window.innerWidth >= 768) return 6;
+  return 4;
+}
+
+let pageSize = getPageSize();
+let currentPage = 1;
 
 const categoryNames = {
   budget: 'Annual Budget',
@@ -55,6 +35,20 @@ const categoryIcons = {
   accomplishments: '🏆'
 };
 
+const fileTypeNames = {
+  'application/pdf': 'PDF',
+  'image/jpeg': 'JPG',
+  'image/png': 'PNG'
+};
+
+// Always escape text from the server before putting it inside innerHTML.
+const esc = (value) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 const formatDate = (dateString) => {
   return new Date(`${dateString}T00:00:00`).toLocaleDateString(
@@ -65,6 +59,13 @@ const formatDate = (dateString) => {
       day: 'numeric'
     }
   );
+};
+
+const formatSize = (bytes) => {
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
 document.querySelector('#app').innerHTML = `
@@ -110,11 +111,6 @@ document.querySelector('#app').innerHTML = `
           <li class="nav-item">
             <a class="nav-link" href="#about">About</a>
           </li>
-          <li class="nav-item">
-            <a class="btn btn-light admin-nav-button" href="#admin">
-              Admin Login
-            </a>
-          </li>
         </ul>
       </div>
     </div>
@@ -149,30 +145,36 @@ document.querySelector('#app').innerHTML = `
           </div>
 
           <div class="col-lg-5">
-            <div class="hero-card">
-              <div class="hero-icon">₱</div>
-              <h2 class="h4 fw-bold mt-3">Your SK. Your Information.</h2>
-              <p class="mb-0 text-secondary">
-                A central place for residents to review published
-                documents and learn about community programs.
-              </p>
-
-              <div class="hero-divider"></div>
-
-              <div class="d-flex justify-content-between">
-                <span class="text-secondary">Portal status</span>
-                <span class="status-text">
-                  <span class="status-dot"></span>
-                  Under development
-                </span>
-              </div>
-            </div>
+            <figure class="hero-photo-card mb-0">
+              <img
+                src="/images/sk-council-1200.jpg"
+                srcset="/images/sk-council-600.jpg 600w, /images/sk-council-1200.jpg 1200w"
+                sizes="(min-width: 992px) 40vw, 100vw"
+                width="1200"
+                height="901"
+                alt="Members of the SK Canawa council standing together on the barangay stage"
+                class="hero-photo"
+                fetchpriority="high"
+              />
+              <figcaption class="hero-photo-caption">
+                <div>
+                  <strong class="d-block">Your SK. Your Information.</strong>
+                  <span class="text-secondary small">
+                    Sangguniang Kabataan of Barangay Canawa
+                  </span>
+                </div>
+                <div class="text-end">
+                  <span class="d-block fw-bold fs-5 lh-1" id="publishedCount">&ndash;</span>
+                  <span class="text-secondary small">documents</span>
+                </div>
+              </figcaption>
+            </figure>
           </div>
         </div>
       </div>
     </section>
 
-    
+
 <section class="py-5" id="categories">
   <div class="container">
     <div class="section-heading mb-4">
@@ -244,7 +246,7 @@ document.querySelector('#app').innerHTML = `
 
         <div class="document-tools">
           <div class="row g-3">
-            <div class="col-lg-7">
+            <div class="col-lg-5">
               <label for="documentSearch" class="form-label fw-semibold">
                 Search documents
               </label>
@@ -256,7 +258,7 @@ document.querySelector('#app').innerHTML = `
               />
             </div>
 
-            <div class="col-lg-5">
+            <div class="col-lg-4">
               <label for="categoryFilter" class="form-label fw-semibold">
                 Filter by category
               </label>
@@ -271,17 +273,28 @@ document.querySelector('#app').innerHTML = `
                 <option value="accomplishments">Accomplishment Reports</option>
               </select>
             </div>
+
+            <div class="col-lg-3">
+              <label for="yearFilter" class="form-label fw-semibold">
+                Year
+              </label>
+              <select
+                class="form-select form-select-lg"
+                id="yearFilter"
+              >
+                <option value="all">All Years</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 my-4">
+        <div class="my-4">
           <p class="mb-0 text-secondary" id="resultsCount" aria-live="polite"></p>
-          <span class="sample-data-note">
-            Preview mode — sample entries only
-          </span>
         </div>
 
         <div class="row g-4" id="documentList"></div>
+
+        <div class="mt-5" id="documentPagination"></div>
       </div>
     </section>
 
@@ -322,37 +335,63 @@ document.querySelector('#app').innerHTML = `
   </footer>
 `;
 
+function getFilteredDocuments() {
+  const searchTerm = document.querySelector('#documentSearch').value.trim().toLowerCase();
+  const selectedCategory = document.querySelector('#categoryFilter').value;
+  const selectedYear = document.querySelector('#yearFilter').value;
+
+  return documents.filter((doc) => {
+    const matchesSearch = doc.title.toLowerCase().includes(searchTerm);
+    const matchesCategory =
+      selectedCategory === 'all' || doc.category === selectedCategory;
+    const matchesYear =
+      selectedYear === 'all' || doc.publication_date.startsWith(selectedYear);
+
+    return matchesSearch && matchesCategory && matchesYear;
+  });
+}
+
+// Shows the "Read more" button only on descriptions that are actually cut off.
+function updateReadMoreButtons() {
+  document.querySelectorAll('.doc-description:not(.expanded)').forEach((text) => {
+    const button = text.nextElementSibling;
+
+    if (button && button.matches('.read-more-button')) {
+      button.classList.toggle('d-none', text.scrollHeight <= text.clientHeight + 1);
+    }
+  });
+}
+
 function renderDocuments() {
-  const searchInput = document.querySelector('#documentSearch');
-  const categoryFilter = document.querySelector('#categoryFilter');
   const documentList = document.querySelector('#documentList');
   const resultsCount = document.querySelector('#resultsCount');
+  const publishedCount = document.querySelector('#publishedCount');
+  const pagination = document.querySelector('#documentPagination');
 
-  const searchTerm = searchInput.value.trim().toLowerCase();
-  const selectedCategory = categoryFilter.value;
+  pagination.innerHTML = '';
 
-  const filteredDocuments = documents
-    .filter((document) => {
-      const matchesSearch = document.title.toLowerCase().includes(searchTerm);
-      const matchesCategory =
-        selectedCategory === 'all' ||
-        document.category === selectedCategory;
-
-      return matchesSearch && matchesCategory;
-    })
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  resultsCount.textContent =
-    `${filteredDocuments.length} sample document(s) found`;
-
-  if (filteredDocuments.length === 0) {
+  if (loadState === 'loading') {
+    resultsCount.textContent = '';
     documentList.innerHTML = `
       <div class="col-12">
         <div class="empty-state">
-          <div class="empty-state-icon">🔎</div>
-          <h3 class="h5 fw-bold mt-3">No documents found</h3>
+          <p class="text-secondary mb-0">Loading documents...</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  if (loadState === 'error') {
+    resultsCount.textContent = '';
+    publishedCount.textContent = '–';
+    documentList.innerHTML = `
+      <div class="col-12">
+        <div class="empty-state">
+          <div class="empty-state-icon">⚠️</div>
+          <h3 class="h5 fw-bold mt-3">Unable to load documents</h3>
           <p class="text-secondary mb-0">
-            Try another search term or choose a different category.
+            Please check your connection and refresh the page.
           </p>
         </div>
       </div>
@@ -360,57 +399,213 @@ function renderDocuments() {
     return;
   }
 
-  documentList.innerHTML = filteredDocuments.map((document) => `
+  publishedCount.textContent = documents.length;
+
+  const filteredDocuments = getFilteredDocuments();
+  const totalPages = Math.max(1, Math.ceil(filteredDocuments.length / pageSize));
+  currentPage = Math.min(currentPage, totalPages);
+
+  const start = (currentPage - 1) * pageSize;
+  const shownDocuments = filteredDocuments.slice(start, start + pageSize);
+
+  resultsCount.textContent =
+    filteredDocuments.length === 0
+      ? '0 documents found'
+      : `Showing ${start + 1}–${start + shownDocuments.length} of ${filteredDocuments.length} document(s)`;
+
+  if (filteredDocuments.length === 0) {
+    const noDocumentsYet = documents.length === 0;
+
+    documentList.innerHTML = `
+      <div class="col-12">
+        <div class="empty-state">
+          <div class="empty-state-icon">${noDocumentsYet ? '📄' : '🔎'}</div>
+          <h3 class="h5 fw-bold mt-3">
+            ${noDocumentsYet ? 'No documents published yet' : 'No documents found'}
+          </h3>
+          <p class="text-secondary mb-0">
+            ${
+              noDocumentsYet
+                ? 'Please check back soon.'
+                : 'Try another search term or choose a different category or year.'
+            }
+          </p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  documentList.innerHTML = shownDocuments.map((doc) => `
     <div class="col-md-6 col-xl-3">
       <article class="document-card h-100">
         <div class="document-card-top">
           <span class="document-icon" aria-hidden="true">
-            ${categoryIcons[document.category] || '📄'}
+            ${categoryIcons[doc.category] || '📄'}
           </span>
           <span class="document-category">
-            ${categoryNames[document.category]}
+            ${esc(categoryNames[doc.category])}
           </span>
         </div>
 
-        <h3 class="h5 fw-bold mt-3">${document.title}</h3>
+        <h3 class="h5 fw-bold mt-3">${esc(doc.title)}</h3>
 
-        <p class="text-secondary small">
-          ${document.description}
-        </p>
+        <p class="text-secondary small mb-2 doc-description" id="description-${doc.id}">${esc(doc.description)}</p>
+        <button
+          type="button"
+          class="read-more-button d-none"
+          data-read-more="description-${doc.id}"
+          aria-expanded="false"
+          aria-controls="description-${doc.id}"
+        >
+          Read more
+        </button>
 
         <div class="document-date mt-auto">
-          <span class="text-secondary small">Sample publication date</span>
-          <span class="fw-semibold small">${formatDate(document.date)}</span>
+          <span class="text-secondary small">Published</span>
+          <span class="fw-semibold small">${esc(formatDate(doc.publication_date))}</span>
+          <span class="text-secondary small">
+            ${esc(fileTypeNames[doc.mime_type] || 'File')} &middot; ${esc(formatSize(doc.file_size))}
+          </span>
         </div>
 
-        <button
-          class="btn btn-outline-success w-100 mt-3"
-          type="button"
-          disabled
-          aria-label="Download unavailable for sample document ${document.title}"
-        >
-          Sample Only — No File
-        </button>
+        <div class="d-flex gap-2 mt-3">
+          <a
+            class="btn btn-success flex-fill"
+            href="/api/documents/${doc.id}/file"
+            target="_blank"
+            rel="noopener"
+            aria-label="View ${esc(doc.title)}"
+          >
+            View
+          </a>
+          <a
+            class="btn btn-outline-success flex-fill"
+            href="/api/documents/${doc.id}/file?download=1"
+            aria-label="Download ${esc(doc.title)}"
+          >
+            Download
+          </a>
+        </div>
       </article>
     </div>
   `).join('');
+
+  renderPagination(pagination, {
+    page: currentPage,
+    totalPages,
+    label: 'Document pages',
+    onChange: goToPage
+  });
+
+  updateReadMoreButtons();
+}
+
+// Used by the numbered page buttons. Scrolls back to the top of the list,
+// so someone who tapped "Next" at the bottom is not left looking at the end.
+function goToPage(page) {
+  currentPage = page;
+  renderDocuments();
+
+  const section = document.querySelector('#documents');
+  if (section && typeof section.scrollIntoView === 'function') {
+    const reduceMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    section.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'start'
+    });
+  }
+}
+
+function populateYearFilter() {
+  const years = [...new Set(documents.map((doc) => doc.publication_date.slice(0, 4)))]
+    .sort()
+    .reverse();
+
+  document.querySelector('#yearFilter').innerHTML =
+    '<option value="all">All Years</option>' +
+    years.map((year) => `<option value="${esc(year)}">${esc(year)}</option>`).join('');
 }
 
 
+async function loadDocuments() {
+  try {
+    const response = await fetch('/api/documents', { cache: 'no-store' });
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error('Request failed');
+    }
+
+    documents = result.documents;
+    loadState = 'ready';
+    populateYearFilter();
+  } catch {
+    loadState = 'error';
+  }
+
+  renderDocuments();
+}
+
+// Any change to the search or filters starts again from page 1.
+function showFirstPage() {
+  currentPage = 1;
+  renderDocuments();
+}
+
 document.querySelector('#documentSearch')
-  .addEventListener('input', renderDocuments);
+  .addEventListener('input', showFirstPage);
 
 document.querySelector('#categoryFilter')
-  .addEventListener('change', renderDocuments);
+  .addEventListener('change', showFirstPage);
+
+document.querySelector('#yearFilter')
+  .addEventListener('change', showFirstPage);
+
+// "Read more" / "Show less" on a card's description.
+document.querySelector('#documentList')
+  .addEventListener('click', (event) => {
+    const button = event.target.closest('[data-read-more]');
+    if (!button) return;
+
+    const text = document.getElementById(button.dataset.readMore);
+    const expanded = text.classList.toggle('expanded');
+
+    button.textContent = expanded ? 'Show less' : 'Read more';
+    button.setAttribute('aria-expanded', String(expanded));
+  });
+
+// When the window size changes: use the right number of documents per page
+// (keeping the same first document in view) and re-check which
+// descriptions are cut off.
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+
+  resizeTimer = setTimeout(() => {
+    const nextSize = getPageSize();
+
+    if (nextSize !== pageSize) {
+      const firstIndex = (currentPage - 1) * pageSize;
+      pageSize = nextSize;
+      currentPage = Math.floor(firstIndex / pageSize) + 1;
+      renderDocuments();
+    } else {
+      updateReadMoreButtons();
+    }
+  }, 150);
+});
 
 // Let navigation links select a document category.
 document.querySelectorAll('[data-category]').forEach((link) => {
   link.addEventListener('click', () => {
-    const categoryFilter = document.querySelector('#categoryFilter');
-
-    categoryFilter.value = link.dataset.category;
-    renderDocuments();
+    document.querySelector('#categoryFilter').value = link.dataset.category;
+    showFirstPage();
   });
 });
 
 renderDocuments();
+loadDocuments();

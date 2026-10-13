@@ -1,0 +1,113 @@
+/* Document cards: long text handling */
+
+/* Keep very long words or links from breaking the card layout. */
+.document-card h3,
+.document-card .doc-description {
+  overflow-wrap: anywhere;
+}
+
+/* Descriptions show 3 lines, then "Read more" expands them. */
+.document-card .doc-description {
+  white-space: pre-line; /* keeps the line breaks an admin typed */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.document-card .doc-description.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+}
+
+.read-more-button {
+  align-self: flex-start;
+  margin: -6px 0 8px;
+  padding: 0;
+  color: #17663c;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: none;
+  border: 0;
+}
+
+.read-more-button:hover,
+.read-more-button:focus-visible {
+  text-decoration: underline;
+}
+
+/* Admin table: keep rows a sensible height */
+.admin-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  max-width: 420px;
+}
+
+/* Page numbers (public document list) */
+.portal-pagination {
+  --bs-pagination-color: #17663c;
+  --bs-pagination-hover-color: #103a28;
+  --bs-pagination-hover-bg: #e8f5ec;
+  --bs-pagination-hover-border-color: #17663c;
+  --bs-pagination-focus-color: #103a28;
+  --bs-pagination-focus-bg: #e8f5ec;
+  --bs-pagination-focus-box-shadow: 0 0 0 0.2rem rgba(23, 102, 60, 0.2);
+  --bs-pagination-active-bg: #17663c;
+  --bs-pagination-active-border-color: #17663c;
+  --bs-pagination-border-color: #17663c;
+  --bs-pagination-disabled-color: #8a9a90;
+  --bs-pagination-disabled-border-color: #cbd8cd;
+  --bs-pagination-padding-x: 0.8rem;
+  --bs-pagination-padding-y: 0.45rem;
+  gap: 6px;
+}
+
+.portal-pagination .page-link {
+  border-radius: 8px !important;
+  margin-left: 0;
+  min-width: 40px;
+  text-align: center;
+}
+
+@media (max-width: 575.98px) {
+  .portal-pagination {
+    gap: 4px;
+  }
+
+  .portal-pagination .page-link {
+    min-width: 36px;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+/* Home page photo card (replaces the old "Your SK" text card) */
+.hero-photo-card {
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e0e9e1;
+  border-radius: 18px;
+  box-shadow: 0 16px 45px rgba(24, 62, 42, 0.12);
+}
+
+.hero-photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #e8f5ec; /* shown while the photo loads */
+}
+
+.hero-photo-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+}

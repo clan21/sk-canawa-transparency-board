@@ -10,5 +10,12 @@
       "database_id": "389c744a-3b97-45b2-a386-4969a3f4f0af",
       "preview_database_id": "DB"
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "DOCS_BUCKET",
+      "bucket_name": "sk-canawa-documents",
+      "preview_bucket_name": "sk-canawa-documents"
+    }
   ]
 }
