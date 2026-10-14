@@ -1,5 +1,15 @@
-
-import { verifyPassword } from "../lib/password.js";
+import { hashPassword, verifyPassword } from "../lib/password.js";
+import { logActivity } from "../lib/activity.js";
+import {
+  LOCKED_MESSAGE,
+  MAX_PER_PAIR,
+  WINDOW_MINUTES,
+  cleanKey,
+  clearFailures,
+  connectionCode,
+  isLocked,
+  recordFailure
+} from "../lib/login-guard.js";
 
 const SESSION_DURATION_SECONDS = 8 * 60 * 60;
 const COOKIE_NAME = "__Host-sk_session";
@@ -34,6 +44,15 @@ function jsonResponse(data, status = 200, headers = {}) {
       ...headers
     }
   });
+}
+
+// A real-looking hash to check against when the username does not exist, so
+// an unknown username takes as long to answer as a wrong password.
+let dummyHash = null;
+
+function getDummyHash() {
+  if (!dummyHash) dummyHash = hashPassword("dummy-password-for-timing");
+  return dummyHash;
 }
 
 export async function onRequestPost({ request, env }) {
@@ -80,20 +99,54 @@ export async function onRequestPost({ request, env }) {
       );
     }
 
+    // Too many wrong passwords recently? Do not even check this one.
+    const key = cleanKey(username);
+    const code = await connectionCode(request, env);
+
+    if (await isLocked(env, key, code)) {
+      return jsonResponse(
+        { success: false, message: LOCKED_MESSAGE },
+        429,
+        { "Retry-After": String(WINDOW_MINUTES * 60) }
+      );
+    }
+
+    // Capital letters do not matter in the username (phones add them).
     const admin = await env.DB.prepare(
-      `SELECT id, username, display_name, password_hash, role, is_active
+      `SELECT id, username, display_name, password_hash, role, is_active,
+              must_change_password
        FROM admins
-       WHERE username = ?
+       WHERE lower(username) = ?
        LIMIT 1`
     )
-      .bind(username)
+      .bind(key)
       .first();
 
-    if (
-      !admin ||
-      admin.is_active !== 1 ||
-      !(await verifyPassword(password, admin.password_hash))
-    ) {
+    const passwordIsRight = await verifyPassword(
+      password,
+      admin ? admin.password_hash : await getDummyHash()
+    );
+
+    if (!admin || admin.is_active !== 1 || !passwordIsRight) {
+      const failures = await recordFailure(env, key, code);
+
+      // Known accounts get the attempt written in Recent Activity.
+      if (admin) {
+        const locked = failures >= MAX_PER_PAIR;
+
+        await logActivity(
+          env,
+          admin,
+          locked ? "login_locked" : "login_failed",
+          null,
+          admin.is_active !== 1
+            ? "Tried to log in to a deactivated account"
+            : locked
+              ? `Locked for about ${WINDOW_MINUTES} minutes after ${MAX_PER_PAIR} wrong passwords`
+              : `Wrong password (attempt ${failures} of ${MAX_PER_PAIR})`
+        );
+      }
+
       return jsonResponse(
         { success: false, message: "Invalid username or password." },
         401
@@ -121,6 +174,9 @@ export async function onRequestPost({ request, env }) {
     )
       .bind(admin.id, tokenHash, expiresAt)
       .run();
+
+    await clearFailures(env, key, code);
+    await logActivity(env, admin, "login", null, "");
 
     const cookie = [
       `${COOKIE_NAME}=${token}`,

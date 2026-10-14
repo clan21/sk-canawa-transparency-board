@@ -1,9 +1,21 @@
+/* SUGGESTIONS-DISABLED -------------------------------------------------------
+   The "Let your voice be heard" feature is switched off. To switch it back on,
+   search this file for SUGGESTIONS-DISABLED and undo the 4 places:
+     1. the import line at the top      (remove the leading "// SUGGESTIONS-DISABLED: ")
+     2. the menu link in the navbar     (remove the <!-- and --> around it)
+     3. the card in the page body       (put  ${suggestionsSection}  back in place of the comment)
+     4. the initSuggestions(); call     (remove the leading "// SUGGESTIONS-DISABLED: ")
+   Also switch on the server files and the dashboard tab (see the notes in
+   functions/api/suggestions.js, functions/api/admin/suggestions/ and
+   src/dashboard.js).
+   ---------------------------------------------------------------------------- */
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './style.css';
 import './documents.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import { renderPagination } from './pagination.js';
+// SUGGESTIONS-DISABLED: import { suggestionsSection, initSuggestions } from './suggestions.js';
 
 // Documents are loaded from the server (GET /api/documents).
 let documents = [];
@@ -108,6 +120,11 @@ document.querySelector('#app').innerHTML = `
               Projects
             </a>
           </li>
+          <!-- SUGGESTIONS-DISABLED: menu link
+          <li class="nav-item">
+            <a class="nav-link" href="#suggestions">Suggestions</a>
+          </li>
+          -->
           <li class="nav-item">
             <a class="nav-link" href="#about">About</a>
           </li>
@@ -298,6 +315,8 @@ document.querySelector('#app').innerHTML = `
       </div>
     </section>
 
+    <!-- SUGGESTIONS-DISABLED: the "Let your voice be heard" card was here (see notes at the top of this file) -->
+
     <section class="about-section py-5" id="about">
       <div class="container">
         <div class="row g-4 align-items-center">
@@ -334,6 +353,8 @@ document.querySelector('#app').innerHTML = `
     </div>
   </footer>
 `;
+
+// SUGGESTIONS-DISABLED: initSuggestions();
 
 function getFilteredDocuments() {
   const searchTerm = document.querySelector('#documentSearch').value.trim().toLowerCase();

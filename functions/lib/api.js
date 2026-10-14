@@ -10,9 +10,30 @@ export function json(data, status = 200, headers = {}) {
   });
 }
 
+// Reads a JSON request body. Returns an object, or null if the request is
+// not valid JSON (so the endpoint can answer "Invalid request").
+export async function readJson(request) {
+  const type = request.headers.get("Content-Type") || "";
+
+  if (!type.toLowerCase().includes("application/json")) return null;
+
+  try {
+    const body = await request.json();
+    return body && typeof body === "object" && !Array.isArray(body)
+      ? body
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 // Every admin-only endpoint calls this first.
 // Returns { admin } on success or { response } to send back immediately.
-export async function requireAdmin(request, env) {
+//
+// A member who still has a temporary password (must_change_password = 1) can
+// only reach the endpoints that pass { allowPasswordChange: true }, so the
+// "choose your own password" step cannot be skipped by calling the API.
+export async function requireAdmin(request, env, options = {}) {
   // Extra protection for requests that change data: the request must
   // come from this same website (on top of the SameSite=Strict cookie).
   if (request.method !== "GET" && request.method !== "HEAD") {
@@ -30,6 +51,19 @@ export async function requireAdmin(request, env) {
   if (!admin) {
     return {
       response: json({ success: false, message: "Not authenticated." }, 401)
+    };
+  }
+
+  if (admin.must_change_password === 1 && !options.allowPasswordChange) {
+    return {
+      response: json(
+        {
+          success: false,
+          code: "password_change_required",
+          message: "Please choose a new password first."
+        },
+        403
+      )
     };
   }
 

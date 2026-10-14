@@ -15,7 +15,7 @@ export async function onRequestGet({ request, env }) {
     const result = await env.DB.prepare(
       `SELECT id, title, category, description, publication_date,
               original_filename, mime_type, file_size, is_published,
-              created_at, updated_at
+              view_count, download_count, created_at, updated_at
        FROM documents
        WHERE is_deleted = 0
        ORDER BY publication_date DESC, id DESC`

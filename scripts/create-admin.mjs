@@ -193,8 +193,8 @@ async function main() {
 
   // The WHERE NOT EXISTS part makes sure the same username is never added twice.
   const sql =
-    `INSERT INTO admins (username, display_name, password_hash, role, is_active)\n` +
-    `SELECT ${sqlText(username)}, ${sqlText(displayName)}, ${sqlText(passwordHash)}, ${sqlText(ROLE)}, 1\n` +
+    `INSERT INTO admins (username, display_name, password_hash, role, is_active, must_change_password)\n` +
+    `SELECT ${sqlText(username)}, ${sqlText(displayName)}, ${sqlText(passwordHash)}, ${sqlText(ROLE)}, 1, 1\n` +
     `WHERE NOT EXISTS (SELECT 1 FROM admins WHERE username = ${sqlText(username)});\n`;
 
   mkdirSync(new URL("../.wrangler/", import.meta.url), { recursive: true });
@@ -214,6 +214,8 @@ async function main() {
   } else {
     console.log(" Password : (the one you typed)");
   }
+
+  console.log("\n The member will be asked to choose their own password at the first login.");
 
   console.log("\n----------------------------------------------------");
   console.log(" Next: run these commands, one at a time");

@@ -1,4 +1,3 @@
-
 const COOKIE_NAME = "__Host-sk_session";
 
 async function hashToken(token) {
@@ -31,6 +30,11 @@ function getSessionToken(request) {
   return null;
 }
 
+// True when the request carries a session cookie (it may still be invalid).
+export function hasSessionCookie(request) {
+  return getSessionToken(request) !== null;
+}
+
 export async function getAuthenticatedAdmin(request, env) {
   const token = getSessionToken(request);
 
@@ -46,7 +50,8 @@ export async function getAuthenticatedAdmin(request, env) {
        admins.id,
        admins.username,
        admins.display_name,
-       admins.role
+       admins.role,
+       admins.must_change_password
      FROM admin_sessions
      INNER JOIN admins
        ON admins.id = admin_sessions.admin_id

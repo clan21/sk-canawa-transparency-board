@@ -1,0 +1,86 @@
+/* "Let your voice be heard" card, form and list */
+
+.voice-card {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 36px 40px;
+  background: linear-gradient(135deg, #e8f5ec 0%, #f6fbf7 70%);
+  border: 1px solid #cfe5d5;
+  border-radius: 18px;
+  box-shadow: 0 16px 45px rgba(24, 62, 42, 0.08);
+}
+
+.voice-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  font-size: 3rem;
+  background: #ffffff;
+  border: 1px solid #cfe5d5;
+  border-radius: 50%;
+  align-items: center;
+}
+
+.voice-link {
+  color: #17663c;
+  font-weight: 700;
+  text-decoration: none;
+  text-align: left;
+}
+
+.voice-link:hover,
+.voice-link:focus-visible {
+  color: #103a28;
+  text-decoration: underline;
+}
+
+@media (max-width: 767.98px) {
+  .voice-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 26px 22px;
+  }
+
+  .voice-icon {
+    width: 64px;
+    height: 64px;
+    font-size: 1.8rem;
+  }
+}
+
+/* Keep the real field out of sight for people; robots still fill it in. */
+.suggestion-trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.word-counter {
+  font-size: 0.85rem;
+}
+
+.word-counter.over-limit {
+  color: #b02a37;
+  font-weight: 700;
+}
+
+.suggestion-item {
+  padding: 16px 0;
+  border-bottom: 1px solid #e3ece5;
+}
+
+.suggestion-item:last-child {
+  border-bottom: 0;
+}
+
+.suggestion-text {
+  margin: 6px 0 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}

@@ -1,11 +1,14 @@
-import { getAuthenticatedAdmin } from "../../../lib/session.js";
+import { getAuthenticatedAdmin, hasSessionCookie } from "../../../lib/session.js";
 import { json } from "../../../lib/api.js";
 import { contentDisposition, parseId } from "../../../lib/documents.js";
+import { isCountable, recordHit } from "../../../lib/hits.js";
 
 // Public: opens a published document in the browser.
 // Add ?download=1 to force a download instead.
 // Hidden documents are only available to a logged-in admin.
-export async function onRequestGet({ request, env, params }) {
+export async function onRequestGet(context) {
+  const { request, env, params } = context;
+
   try {
     const id = parseId(params.id);
 
@@ -44,6 +47,28 @@ export async function onRequestGet({ request, env, params }) {
 
     const download =
       new URL(request.url).searchParams.get("download") === "1";
+
+    // Count the view or download. Admins previewing from the dashboard,
+    // robots and partial requests are skipped (see lib/hits.js). The counting
+    // runs after the file is on its way, so it never slows the visitor down.
+    if (isCountable(request)) {
+      const isAdmin =
+        hasSessionCookie(request) &&
+        (await getAuthenticatedAdmin(request, env)) !== null;
+
+      if (!isAdmin) {
+        const counting = recordHit(
+          env,
+          request,
+          id,
+          download ? "download" : "view"
+        );
+
+        // Called on the context itself (it does not work pulled out on its own).
+        if (typeof context.waitUntil === "function") context.waitUntil(counting);
+        else await counting;
+      }
+    }
 
     const headers = new Headers({
       "Content-Type": doc.mime_type,
